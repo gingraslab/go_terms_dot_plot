@@ -13,7 +13,7 @@ To run the tool, you need Python 3.x and the following libraries:
 
 Install the required libraries using the following command:
 ```shell
-pip install pandas numpy matplotlib seaborn
+pip3 install pandas numpy matplotlib seaborn
 ```
 
 ## **Running the Tool**
