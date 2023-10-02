@@ -50,4 +50,3 @@ Darker color representing higher significance.
 ## **Sample Files and Results**
 There are three sample input files in the 'data' directory for your reference.
 Sample results are available in the 'results' directory.
-# go_terms_dot_plot
