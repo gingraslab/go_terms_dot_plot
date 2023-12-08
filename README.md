@@ -29,8 +29,11 @@ The tool will prompt you to enter:
 ### **Example:**
 ```shell
 (base) Admin@Desktop% python3 src/go_terms_dot_plot.py
-Please enter the directory containing the Excel files: data
-Please enter the number of top rows to keep based on 'p-value' (default is 5): 3
+Please enter the directory: data
+Please enter the name of the GO file: hnRNPA1_BFDR1%.xlsx
+Please enter the number of top rows to keep based on 'adjusted_p_value' (default is 15): 5
+Please enter the term size cutoff (default is 500): 2500
+Enter 'True' for filled version or 'False' for unfilled version (default is True): True
 ```
 The generated plots will be saved in the 'results' folder.
 
