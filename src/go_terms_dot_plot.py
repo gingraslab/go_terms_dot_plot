@@ -105,7 +105,7 @@ if __name__ == "__main__":
     file_input = input("Please enter the name of the GO file: ")
     top_number_input = input("Please enter the number of top rows to keep based on 'adjusted_p_value' (default is 15): ")
     term_size_cutoff_input = input("Please enter the term size cutoff (default is 500): ")
-    filled_version_input = input("Enter 'True' for filled version or 'False' for unfilled version (default is True): ")
+    filled_version_input = input("Please enter 'True' for filled version or 'False' for unfilled version (default is True): ")
 
     try:
         top_number_input = int(top_number_input)
