@@ -33,7 +33,7 @@ Please enter the directory: data
 Please enter the name of the GO file: hnRNPA1_BFDR1%.xlsx
 Please enter the number of top rows to keep based on 'adjusted_p_value' (default is 15): 5
 Please enter the term size cutoff (default is 500): 2500
-Enter 'True' for filled version or 'False' for unfilled version (default is True): True
+Please enter 'True' for filled version or 'False' for unfilled version (default is True): True
 ```
 The generated plots will be saved in the 'results' folder.
 
