@@ -13,7 +13,7 @@ To run the tool, you need Python 3.x and the following libraries:
 
 Install the required libraries using the following command:
 ```shell
-pip install pandas numpy matplotlib seaborn
+pip3 install pandas numpy matplotlib seaborn
 ```
 
 ## **Running the Tool**
@@ -50,4 +50,3 @@ Darker color representing higher significance.
 ## **Sample Files and Results**
 There are three sample input files in the 'data' directory for your reference.
 Sample results are available in the 'results' directory.
-# go_terms_dot_plot
