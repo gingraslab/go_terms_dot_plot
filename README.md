@@ -17,7 +17,10 @@ pip3 install pandas numpy matplotlib seaborn
 ```
 
 ## **Running the Tool**
-
+First you need to clone repository:
+```shell
+git clone https://github.com/gingraslab/go_terms_dot_plot
+```
 To run the tool, navigate to the main directory in your terminal and execute the following command:
 ```shell
 python3 src/go_terms_dot_plot.py
