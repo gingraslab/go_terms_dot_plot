@@ -27,7 +27,6 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
 
     # Filled or unfilled version
     if filled_version:
-        print("Entering filled version")
         for sheet_name in xls.sheet_names:
             dfs[sheet_name] = pd.read_excel(xls, sheet_name=sheet_name)
             dfs[sheet_name] = dfs[sheet_name].loc[dfs[sheet_name]['term_size'] <= term_size_cutoff]
@@ -36,7 +35,6 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
             dfs[sheet_name] = dfs[sheet_name].sort_values(by="adjusted_p_value")  # Sort terms by p-value
             dfs[sheet_name]['source'] = sheet_name
     else:
-        print("Entering unfilled version")
         for sheet_name in xls.sheet_names:
             dfs[sheet_name] = pd.read_excel(xls, sheet_name=sheet_name)
             dfs[sheet_name] = dfs[sheet_name].loc[dfs[sheet_name]['term_size'] <= term_size_cutoff]
@@ -46,8 +44,8 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     # Concatenate all dataframes into one
     df = pd.concat(dfs.values())
 
-    # Count the number of intersections for each term
-    df['intersections'] = df['intersections'].str.split(',').str.len()
+    # # Count the number of intersections for each term
+    # df['intersections'] = df['intersections'].str.split(',').str.len()
 
     # Create a colormap
     cmap = cm.get_cmap('Oranges_r')
@@ -60,7 +58,17 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     fig, ax1 = plt.subplots(figsize=(2, 15))
 
     # Scatter plot
-    sns.scatterplot(x='source', y='term_name', size='intersections', hue='adjusted_p_value', data=df, palette=color_dict, sizes=(20, 100), ax=ax1)
+    # sns.scatterplot(x='source', y='term_name', size='intersection_size', hue='adjusted_p_value', data=df, palette=color_dict, sizes=(20, 100), ax=ax1)
+    # The sizes parameter in sns.scatterplot expects sizes in points^2
+    max_size = df['intersection_size'].max()
+    size_reference = 200  # This size corresponds to the max 'intersection_size' in points^2
+    scatter_size_mapping = {i: (i / max_size) * size_reference for i in df['intersection_size'].unique()}
+
+    # Use this mapping for the scatter plot sizes
+    sns.scatterplot(x='source', y='term_name', size='intersection_size', hue='adjusted_p_value',
+                    data=df, palette=color_dict, sizes=scatter_size_mapping, ax=ax1)
+
+    
     ax1.set_xlabel(None)
 
     for label in ax1.get_xticklabels():
@@ -69,11 +77,24 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     # Adjust the x-limits to include some buffer space
     ax1.set_xlim(-0.5, len(dfs)-0.5)
 
+        # Determine the legend sizes based on the data
+    max_genes = df['intersection_size'].max()
+
+    # If max gene count is below 50, use the first set of sizes; otherwise, use the second set
+    if max_genes <= 50:
+        legend_sizes = [1, 5, 10, 50]
+    else:
+        legend_sizes = [50, 100, 150, 200]
+
+    # Calculate the markersizes for the legend, making the largest legend size proportionally larger
+    legend_markersizes = [(size / max_genes) * size_reference for size in legend_sizes]
+
     # Create size legend
-    sizes = [50, 100, 150, 200]
-    labels = ['50', '100', '150', '200']
-    legend_elements = [plt.Line2D([0], [0], marker='o', color='w', markersize=s/25, markerfacecolor='black', label=label) for s, label in zip(sizes, labels)]
-    lgd = ax1.legend(handles=legend_elements, title='Genes', loc='upper left', bbox_to_anchor=(1, 0.5))
+    legend_elements = [plt.Line2D([0], [0], marker='o', color='w',
+                                markersize=np.sqrt(size),  # Size is in points^2, so take sqrt for diameter
+                                markerfacecolor='black', label=str(legend_label)) 
+                    for size, legend_label in zip(legend_markersizes, legend_sizes)]
+    lgd = ax1.legend(handles=legend_elements, title='Genes', loc='upper left', bbox_to_anchor=(1, 1), labelspacing=2.5)
 
     # Get the minimum and maximum adjusted p-values
     min_p = df['adjusted_p_value'].min()
@@ -82,11 +103,18 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     # Create a logarithmic normalization object based on these values
     norm = LogNorm(vmin=min_p, vmax=max_p)
 
-    # Create colorbar
+    # Calculate the middle value for the p-value range on a log scale
+    middle_p = np.sqrt(min_p * max_p)
+
+    # Create colorbar with three ticks: min, middle, and max p-values
     fig.subplots_adjust(bottom=0.3)
     cax = plt.axes([0.2, 0.05, 0.6, 0.03])
-    cb = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax, orientation='horizontal')
+    cb = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax, orientation='horizontal', 
+                    ticks=[min_p, middle_p, max_p])
     cb.set_label('adjusted_p_value')
+
+    # Set the tick labels, using scientific notation
+    cb.ax.set_xticklabels([f'$10^{{{int(np.log10(t))}}}$' for t in [min_p, middle_p, max_p]])
 
     # Prepare results directory
     results_dir = 'results'
@@ -126,5 +154,3 @@ if __name__ == "__main__":
         filled_version_input = True
 
     process_file(file_input, directory_input, top_number_input, term_size_cutoff_input, filled_version_input)
-
-
