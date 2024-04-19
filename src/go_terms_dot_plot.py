@@ -7,7 +7,16 @@ import matplotlib.colors as colors
 from matplotlib.colors import LogNorm
 import os
 import warnings
+import matplotlib
 warnings.filterwarnings('ignore')
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+matplotlib.rcParams['figure.dpi'] = 300
+matplotlib.rcParams['font.family'] = 'sans-serif'
+matplotlib.rcParams['font.sans-serif'] = ['Arial']
+
+
+
 
 def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
     new_cmap = colors.LinearSegmentedColormap.from_list(
@@ -55,7 +64,17 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     color_dict = {p: cmap(i/15) for i, p in enumerate(sorted(df['adjusted_p_value'].unique()))}
 
     # Create the plot
-    fig, ax1 = plt.subplots(figsize=(2, 15))
+    # fig, ax1 = plt.subplots(figsize=(2, 15))
+     # Determine the number of unique terms to display
+    unique_terms_count = len(df['term_name'].unique())
+    
+    # Dynamically set the figure height based on the number of unique terms
+    # Assuming 0.6 inches per term for readability
+    dynamic_fig_height = max(5, unique_terms_count * 0.6)  # Ensuring a minimum height of 5 inches
+    
+    # Create the plot with dynamic figure size
+    fig, ax1 = plt.subplots(figsize=(3, dynamic_fig_height))  # Adjust the width as needed
+
 
     # Scatter plot
     # sns.scatterplot(x='source', y='term_name', size='intersection_size', hue='adjusted_p_value', data=df, palette=color_dict, sizes=(20, 100), ax=ax1)
@@ -108,7 +127,8 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
 
     # Create colorbar with three ticks: min, middle, and max p-values
     fig.subplots_adjust(bottom=0.3)
-    cax = plt.axes([0.2, 0.05, 0.6, 0.03])
+    
+    cax = fig.add_axes([ax1.get_position().x0, ax1.get_position().y0 - 0.15, ax1.get_position().width, 0.03])
     cb = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax, orientation='horizontal', 
                     ticks=[min_p, middle_p, max_p])
     cb.set_label('adjusted_p_value')
@@ -125,7 +145,9 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     ax1.set_title(GO_file[:-5])
     plt.rcParams['svg.fonttype'] = 'none'
     file_suffix = '_filled_' if filled_version else '_'
-    plt.savefig(f'{results_dir}/{GO_file[:-5]}{file_suffix}{term_size_cutoff}termsize.svg', format="svg", dpi=4000, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(f'{results_dir}/{GO_file[:-5]}{file_suffix}{term_size_cutoff}termsize.svg', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(f'{results_dir}/{GO_file[:-5]}{file_suffix}{term_size_cutoff}termsize.png', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')   
+    plt.savefig(f'{results_dir}/{GO_file[:-5]}{file_suffix}{term_size_cutoff}termsize.pdf', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')    
     plt.close()
 
 if __name__ == "__main__":
