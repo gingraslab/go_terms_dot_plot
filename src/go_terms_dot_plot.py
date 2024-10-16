@@ -73,7 +73,7 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     dynamic_fig_height = max(5, unique_terms_count * 0.6)  # Ensuring a minimum height of 5 inches
     
     # Create the plot with dynamic figure size
-    fig, ax1 = plt.subplots(figsize=(3, dynamic_fig_height))  # Adjust the width as needed
+    fig, ax1 = plt.subplots(figsize=(1.5,4))  # Adjust the width as needed
 
 
     # Scatter plot
@@ -126,9 +126,9 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     middle_p = np.sqrt(min_p * max_p)
 
     # Create colorbar with three ticks: min, middle, and max p-values
-    fig.subplots_adjust(bottom=0.3)
+    fig.subplots_adjust(bottom=0.1)
     
-    cax = fig.add_axes([ax1.get_position().x0, ax1.get_position().y0 - 0.15, ax1.get_position().width, 0.03])
+    cax = fig.add_axes([ax1.get_position().x0, ax1.get_position().y0 - 0.45, ax1.get_position().width, 0.03])
     cb = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax, orientation='horizontal', 
                     ticks=[min_p, middle_p, max_p])
     cb.set_label('adjusted_p_value')
