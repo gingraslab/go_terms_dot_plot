@@ -25,6 +25,12 @@ def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
     )
     return new_cmap
 
+
+# Create a scaling function based on your specific needs
+def scale_sizes(sizes, base_size=200):
+    max_size = sizes.max()
+    return (sizes / max_size) * base_size
+
 def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_cutoff: int = 500, filled_version: bool = True):
     # Load the data
     file_path = os.path.join(directory, GO_file)
@@ -37,21 +43,37 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     # Filled or unfilled version
     if filled_version:
         for sheet_name in xls.sheet_names:
-            dfs[sheet_name] = pd.read_excel(xls, sheet_name=sheet_name)
-            dfs[sheet_name] = dfs[sheet_name].loc[dfs[sheet_name]['term_size'] <= term_size_cutoff]
-            terms_to_show = np.unique(np.append(terms_to_show, dfs[sheet_name].nsmallest(top_number, 'adjusted_p_value')['term_name']))
-            dfs[sheet_name] = dfs[sheet_name].loc[dfs[sheet_name]['term_name'].isin(terms_to_show)]
-            dfs[sheet_name] = dfs[sheet_name].sort_values(by="adjusted_p_value")  # Sort terms by p-value
-            dfs[sheet_name]['source'] = sheet_name
+            # Read sheet
+            df = pd.read_excel(xls, sheet_name=sheet_name)
+            # Filter based on term_size and adjusted_p_value
+            df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] < 0.01)]
+            # Find top terms by adjusted_p_value to include in terms_to_show
+            top_terms = df.nsmallest(top_number, 'adjusted_p_value')['term_name']
+            terms_to_show = np.unique(np.append(terms_to_show, top_terms))
+            # Keep only rows where term_name is in terms_to_show
+            df = df.loc[df['term_name'].isin(terms_to_show)]
+            # Sort by adjusted_p_value
+            df = df.sort_values(by="adjusted_p_value")
+            # Add source column
+            df['source'] = sheet_name
+            # Store the processed dataframe
+            dfs[sheet_name] = df
     else:
         for sheet_name in xls.sheet_names:
-            dfs[sheet_name] = pd.read_excel(xls, sheet_name=sheet_name)
-            dfs[sheet_name] = dfs[sheet_name].loc[dfs[sheet_name]['term_size'] <= term_size_cutoff]
-            dfs[sheet_name] = dfs[sheet_name].nsmallest(top_number, 'adjusted_p_value')
-            dfs[sheet_name]['source'] = sheet_name
+            # Read sheet
+            df = pd.read_excel(xls, sheet_name=sheet_name)
+            # Filter based on term_size and adjusted_p_value
+            df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] < 0.05)]
+            # Keep only the top_number of terms by adjusted_p_value
+            df = df.nsmallest(top_number, 'adjusted_p_value')
+            # Add source column
+            df['source'] = sheet_name
+            # Store the processed dataframe
+            dfs[sheet_name] = df
 
     # Concatenate all dataframes into one
     df = pd.concat(dfs.values())
+
 
     # # Count the number of intersections for each term
     # df['intersections'] = df['intersections'].str.split(',').str.len()
@@ -70,11 +92,11 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     
     # Dynamically set the figure height based on the number of unique terms
     # Assuming 0.6 inches per term for readability
-    dynamic_fig_height = max(5, unique_terms_count * 0.6)  # Ensuring a minimum height of 5 inches
+    dynamic_fig_height = max(5, unique_terms_count * 0.8)  # Ensuring a minimum height of 5 inches
     
     # Create the plot with dynamic figure size
-    fig, ax1 = plt.subplots(figsize=(1.5,4))  # Adjust the width as needed
-
+    # fig, ax1 = plt.subplots(figsize=(8, dynamic_fig_height))  # Adjust the width as needed
+    fig, ax1 = plt.subplots(figsize=(3,9))
 
     # Scatter plot
     # sns.scatterplot(x='source', y='term_name', size='intersection_size', hue='adjusted_p_value', data=df, palette=color_dict, sizes=(20, 100), ax=ax1)
@@ -96,24 +118,47 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     # Adjust the x-limits to include some buffer space
     ax1.set_xlim(-0.5, len(dfs)-0.5)
 
-        # Determine the legend sizes based on the data
-    max_genes = df['intersection_size'].max()
+    #     # Determine the legend sizes based on the data
+    # max_genes = df['intersection_size'].max()
 
-    # If max gene count is below 50, use the first set of sizes; otherwise, use the second set
-    if max_genes <= 50:
-        legend_sizes = [1, 5, 10, 50]
-    else:
-        legend_sizes = [50, 100, 150, 200]
+    # # If max gene count is below 50, use the first set of sizes; otherwise, use the second set
+    # if max_genes <= 50:
+    #     legend_sizes = [1, 5, 10, 50]
+    # else:
+    #     legend_sizes = [50, 100, 150, 200]
 
-    # Calculate the markersizes for the legend, making the largest legend size proportionally larger
-    legend_markersizes = [(size / max_genes) * size_reference for size in legend_sizes]
+    # # Calculate the markersizes for the legend, making the largest legend size proportionally larger
+    # legend_markersizes = [(size / max_genes) * size_reference for size in legend_sizes]
 
-    # Create size legend
+    # # Create size legend
+    # legend_elements = [plt.Line2D([0], [0], marker='o', color='w',
+    #                             markersize=np.sqrt(size),  # Size is in points^2, so take sqrt for diameter
+    #                             markerfacecolor='black', label=str(legend_label)) 
+    #                 for size, legend_label in zip(legend_markersizes, legend_sizes)]
+    # lgd = ax1.legend(handles=legend_elements, title='Genes', loc='upper left', bbox_to_anchor=(1, 1), labelspacing=2.5)
+
+    # Calculate scaled sizes for the plot
+    max_size = df['intersection_size'].max()
+    df['scaled_intersection_size'] = (df['intersection_size'] / max_size) * 200  # Scale sizes proportionally
+
+    # Create a sizes dictionary that maps every unique scaled size to a specific plot size
+    unique_scaled_sizes = df['scaled_intersection_size'].unique()
+    sizes_dict = {size: size for size in unique_scaled_sizes}
+
+    # Create the scatter plot using the sizes dictionary
+    sns.scatterplot(x='source', y='term_name', size='scaled_intersection_size', hue='adjusted_p_value',
+                    data=df, palette=color_dict, sizes=sizes_dict, ax=ax1)
+
+    # Calculate the smallest and largest sizes for the legend
+    smallest_size_scaled = df['scaled_intersection_size'].min()
+    largest_size_scaled = df['scaled_intersection_size'].max()
+
+    # Create size legend with exact plot sizes
     legend_elements = [plt.Line2D([0], [0], marker='o', color='w',
-                                markersize=np.sqrt(size),  # Size is in points^2, so take sqrt for diameter
-                                markerfacecolor='black', label=str(legend_label)) 
-                    for size, legend_label in zip(legend_markersizes, legend_sizes)]
-    lgd = ax1.legend(handles=legend_elements, title='Genes', loc='upper left', bbox_to_anchor=(1, 1), labelspacing=2.5)
+                                  markersize=np.sqrt(size),  # Convert area size to diameter
+                                  markerfacecolor='black', label=f'{int(df[df["scaled_intersection_size"] == size]["intersection_size"].iloc[0])}') 
+                      for size in [smallest_size_scaled, largest_size_scaled]]
+    lgd = ax1.legend(handles=legend_elements, title='Intersection Size', loc='upper left', bbox_to_anchor=(1, 1), labelspacing=2.5)
 
     # Get the minimum and maximum adjusted p-values
     min_p = df['adjusted_p_value'].min()
@@ -126,9 +171,9 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     middle_p = np.sqrt(min_p * max_p)
 
     # Create colorbar with three ticks: min, middle, and max p-values
-    fig.subplots_adjust(bottom=0.1)
+    fig.subplots_adjust(bottom=0.3)
     
-    cax = fig.add_axes([ax1.get_position().x0, ax1.get_position().y0 - 0.45, ax1.get_position().width, 0.03])
+    cax = fig.add_axes([ax1.get_position().x0, ax1.get_position().y0 - 0.15, ax1.get_position().width, 0.03])
     cb = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax, orientation='horizontal', 
                     ticks=[min_p, middle_p, max_p])
     cb.set_label('adjusted_p_value')
