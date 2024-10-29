@@ -8,6 +8,7 @@ from matplotlib.colors import LogNorm
 import os
 import warnings
 import matplotlib
+import re
 warnings.filterwarnings('ignore')
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
@@ -31,50 +32,101 @@ def scale_sizes(sizes, base_size=200):
     max_size = sizes.max()
     return (sizes / max_size) * base_size
 
-def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_cutoff: int = 500, filled_version: bool = True):
+def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_cutoff: int = 500, p_value_threshold: int = 0.05, filled_version: bool = True, multiquery: bool = False):
     # Load the data
     file_path = os.path.join(directory, GO_file)
-    xls = pd.ExcelFile(file_path)
     
+    if multiquery:
+        multiquery_df = pd.read_csv(file_path, sep=',', index_col=False)
+        groups = []
+        for col in multiquery_df.columns:
+            x = re.search("(?<=adjusted_p_value__)(.*)", col)
+            if x:
+                groups.append(x.group())
+
+    else:
+        xls = pd.ExcelFile(file_path)
+        
     # Dictionaries to hold dataframes
     dfs = {}
     terms_to_show = []
 
     # Filled or unfilled version
     if filled_version:
-        for sheet_name in xls.sheet_names:
-            # Read sheet
-            df = pd.read_excel(xls, sheet_name=sheet_name)
-            # Filter based on term_size and adjusted_p_value
-            df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] < 0.01)]
-            # Find top terms by adjusted_p_value to include in terms_to_show
-            top_terms = df.nsmallest(top_number, 'adjusted_p_value')['term_name']
-            terms_to_show = np.unique(np.append(terms_to_show, top_terms))
-            # Keep only rows where term_name is in terms_to_show
-            df = df.loc[df['term_name'].isin(terms_to_show)]
-            # Sort by adjusted_p_value
-            df = df.sort_values(by="adjusted_p_value")
-            # Add source column
-            df['source'] = sheet_name
-            # Store the processed dataframe
-            dfs[sheet_name] = df
+        if multiquery:
+            # Split groups
+            for x in groups:
+                df = multiquery_df[['source', 'term_name', 'term_id', 'term_size',
+                                    'adjusted_p_value__' + x, 'query_size__' + x,
+                                    'intersection_size__' + x]]
+                df.columns = ['source', 'term_name', 'term_id', 'term_size',
+                              'adjusted_p_value', 'query_size', 'intersection_size']                
+                # Filter based on term_size and adjusted_p_value
+                df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] <= p_value_threshold)]
+                # Find top terms by adjusted_p_value to include in terms_to_show
+                top_terms = df.nsmallest(top_number, 'adjusted_p_value')['term_name']
+                terms_to_show = np.unique(np.append(terms_to_show, top_terms))
+                # Keep only rows where term_name is in terms_to_show
+                df = df.loc[df['term_name'].isin(terms_to_show)]
+                # Sort by adjusted_p_value
+                df = df.sort_values(by="adjusted_p_value")
+                # Add sourceData column
+                df['sourceData'] = x
+                # Store the processed dataframe
+                dfs[x] = df
+        else:
+            for sheet_name in xls.sheet_names:
+                # Read sheet
+                df = pd.read_excel(xls, sheet_name=sheet_name)
+                # Filter based on term_size and adjusted_p_value
+                df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] <= p_value_threshold)]
+                # Find top terms by adjusted_p_value to include in terms_to_show
+                top_terms = df.nsmallest(top_number, 'adjusted_p_value')['term_name']
+                terms_to_show = np.unique(np.append(terms_to_show, top_terms))
+                # Keep only rows where term_name is in terms_to_show
+                df = df.loc[df['term_name'].isin(terms_to_show)]
+                # Sort by adjusted_p_value
+                df = df.sort_values(by="adjusted_p_value")
+                # Add sourceData column
+                df['sourceData'] = sheet_name
+                # Store the processed dataframe
+                dfs[sheet_name] = df
     else:
-        for sheet_name in xls.sheet_names:
-            # Read sheet
-            df = pd.read_excel(xls, sheet_name=sheet_name)
-            # Filter based on term_size and adjusted_p_value
-            df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] < 0.05)]
-            # Keep only the top_number of terms by adjusted_p_value
-            df = df.nsmallest(top_number, 'adjusted_p_value')
-            # Add source column
-            df['source'] = sheet_name
-            # Store the processed dataframe
-            dfs[sheet_name] = df
+        if multiquery:
+            # Split groups
+            for x in groups:
+                df = multiquery_df[['source', 'term_name', 'term_id', 'term_size',
+                                    'adjusted_p_value__' + x, 'query_size__' + x,
+                                    'intersection_size__' + x]]
+                df.columns = ['source', 'term_name', 'term_id', 'term_size',
+                              'adjusted_p_value', 'query_size', 'intersection_size']                
+                # Filter based on term_size and adjusted_p_value
+                df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] <= p_value_threshold)]
+                # Keep only the top_number of terms by adjusted_p_value
+                df = df.nsmallest(top_number, 'adjusted_p_value')
+                # Add sourceData column
+                df['sourceData'] = x
+                # Store the processed dataframe
+                dfs[x] = df
+        else:
+            for sheet_name in xls.sheet_names:
+                # Read sheet
+                df = pd.read_excel(xls, sheet_name=sheet_name)
+                # Filter based on term_size and adjusted_p_value
+                df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] <= p_value_threshold)]
+                # Keep only the top_number of terms by adjusted_p_value
+                df = df.nsmallest(top_number, 'adjusted_p_value')
+                # Add sourceData column
+                df['sourceData'] = sheet_name
+                # Store the processed dataframe
+                dfs[sheet_name] = df
 
     # Concatenate all dataframes into one
     df = pd.concat(dfs.values())
 
-
+    # Shorten term name sizes if longer than 50 characters
+    df["term_name"] = [term[:50] + "..." if len(term) > 50 else term for term in df["term_name"]] 
+    
     # # Count the number of intersections for each term
     # df['intersections'] = df['intersections'].str.split(',').str.len()
 
@@ -91,23 +143,24 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     unique_terms_count = len(df['term_name'].unique())
     
     # Dynamically set the figure height based on the number of unique terms
-    # Assuming 0.6 inches per term for readability
-    dynamic_fig_height = max(5, unique_terms_count * 0.8)  # Ensuring a minimum height of 5 inches
+    # Assuming 0.4 inches per term for readability
+    dynamic_fig_height = max(5, unique_terms_count * 0.4)  # Ensuring a minimum height of 5 inches
     
     # Create the plot with dynamic figure size
     # fig, ax1 = plt.subplots(figsize=(8, dynamic_fig_height))  # Adjust the width as needed
-    fig, ax1 = plt.subplots(figsize=(3,9))
+    #fig, ax1 = plt.subplots(figsize=(3,9))
+    fig, ax1 = plt.subplots(figsize=(3,dynamic_fig_height))
 
     # Scatter plot
-    # sns.scatterplot(x='source', y='term_name', size='intersection_size', hue='adjusted_p_value', data=df, palette=color_dict, sizes=(20, 100), ax=ax1)
+    # sns.scatterplot(x='sourceData', y='term_name', size='intersection_size', hue='adjusted_p_value', data=df, palette=color_dict, sizes=(20, 100), ax=ax1)
     # The sizes parameter in sns.scatterplot expects sizes in points^2
     max_size = df['intersection_size'].max()
     size_reference = 200  # This size corresponds to the max 'intersection_size' in points^2
     scatter_size_mapping = {i: (i / max_size) * size_reference for i in df['intersection_size'].unique()}
 
     # Use this mapping for the scatter plot sizes
-    sns.scatterplot(x='source', y='term_name', size='intersection_size', hue='adjusted_p_value',
-                    data=df, palette=color_dict, sizes=scatter_size_mapping, ax=ax1)
+    #sns.scatterplot(x='sourceData', y='term_name', size='intersection_size', hue='adjusted_p_value',
+                    #data=df, palette=color_dict, sizes=scatter_size_mapping, ax=ax1)
 
     
     ax1.set_xlabel(None)
@@ -117,6 +170,9 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
 
     # Adjust the x-limits to include some buffer space
     ax1.set_xlim(-0.5, len(dfs)-0.5)
+    
+    # Adjust the y-axis limits
+    ax1.set_ylim([-1, unique_terms_count])  
 
     #     # Determine the legend sizes based on the data
     # max_genes = df['intersection_size'].max()
@@ -146,7 +202,7 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     sizes_dict = {size: size for size in unique_scaled_sizes}
 
     # Create the scatter plot using the sizes dictionary
-    sns.scatterplot(x='source', y='term_name', size='scaled_intersection_size', hue='adjusted_p_value',
+    sns.scatterplot(x='sourceData', y='term_name', size='scaled_intersection_size', hue='adjusted_p_value',
                     data=df, palette=color_dict, sizes=sizes_dict, ax=ax1)
 
     # Calculate the smallest and largest sizes for the legend
@@ -187,12 +243,13 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
         os.makedirs(results_dir)
 
     # Set title and display the plot
-    ax1.set_title(GO_file[:-5])
+    plot_title = re.search("(.*)(?=\\.)", GO_file).group()
+    ax1.set_title(plot_title)
     plt.rcParams['svg.fonttype'] = 'none'
     file_suffix = '_filled_' if filled_version else '_'
-    plt.savefig(f'{results_dir}/{GO_file[:-5]}{file_suffix}{term_size_cutoff}termsize.svg', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')
-    plt.savefig(f'{results_dir}/{GO_file[:-5]}{file_suffix}{term_size_cutoff}termsize.png', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')   
-    plt.savefig(f'{results_dir}/{GO_file[:-5]}{file_suffix}{term_size_cutoff}termsize.pdf', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')    
+    plt.savefig(f'{results_dir}/{plot_title}{file_suffix}{term_size_cutoff}termsize.svg', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(f'{results_dir}/{plot_title}{file_suffix}{term_size_cutoff}termsize.png', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')   
+    plt.savefig(f'{results_dir}/{plot_title}{file_suffix}{term_size_cutoff}termsize.pdf', dpi=300, bbox_extra_artists=(lgd,), bbox_inches='tight')    
     plt.close()
 
 if __name__ == "__main__":
@@ -200,7 +257,9 @@ if __name__ == "__main__":
     file_input = input("Please enter the name of the GO file: ")
     top_number_input = input("Please enter the number of top rows to keep based on 'adjusted_p_value' (default is 15): ")
     term_size_cutoff_input = input("Please enter the term size cutoff (default is 500): ")
+    p_value_input = input("Please enter the adjusted p-value cutoff (default is 0.05): ")
     filled_version_input = input("Please enter 'True' for filled version or 'False' for unfilled version (default is True): ")
+    multiquery_input = input("Please enter 'True' if this was a multiquery search or 'False' if every group was independently searched (default is False): ")
 
     try:
         top_number_input = int(top_number_input)
@@ -213,11 +272,28 @@ if __name__ == "__main__":
     except ValueError:
         print("Invalid input for term size cutoff. Using the default value of 500.")
         term_size_cutoff_input = 500
+        
+    try:
+        p_value_input = float(p_value_input)
+    except ValueError:
+        print("Invalid input for p-value cutoff. Using the default value of 0.05.")
+        p_value_input = 0.05
 
     try:
         filled_version_input = filled_version_input.strip().lower() == 'true'
     except ValueError:
         print("Invalid input for filled version. Using the default value of True.")
         filled_version_input = True
+    
+    try:
+        multiquery_input = multiquery_input.strip().lower() == 'true'
+    except ValueError:
+        print("Invalid input for multiquery. Using the default value of False.")
+        multiquery_input = False    
 
-    process_file(file_input, directory_input, top_number_input, term_size_cutoff_input, filled_version_input)
+    process_file(GO_file = file_input, directory = directory_input, 
+                 top_number = top_number_input, 
+                 term_size_cutoff = term_size_cutoff_input, 
+                 p_value_threshold = p_value_input, 
+                 filled_version = filled_version_input, 
+                 multiquery = multiquery_input)
