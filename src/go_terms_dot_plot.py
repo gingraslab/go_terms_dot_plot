@@ -9,6 +9,7 @@ import os
 import warnings
 import matplotlib
 import re
+import sys
 warnings.filterwarnings('ignore')
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
@@ -37,15 +38,25 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     file_path = os.path.join(directory, GO_file)
     
     if multiquery:
-        multiquery_df = pd.read_csv(file_path, sep=',', index_col=False)
-        groups = []
-        for col in multiquery_df.columns:
-            x = re.search("(?<=adjusted_p_value__)(.*)", col)
-            if x:
-                groups.append(x.group())
-
+        try:
+            multiquery_df = pd.read_csv(file_path, sep=',', index_col=False)
+            groups = []
+            for col in multiquery_df.columns:
+                x = re.search("(?<=adjusted_p_value__)(.*)", col)
+                if x:
+                    groups.append(x.group())
+        except ValueError:
+            sys.exit("Invalid structure for a multiquery search result.")
+        except FileNotFoundError:
+            sys.exit("File not found.")
+        
     else:
-        xls = pd.ExcelFile(file_path)
+        try:
+            xls = pd.ExcelFile(file_path)
+        except ValueError:
+            sys.exit("Invalid structure for a GO search result.")
+        except FileNotFoundError:
+            sys.exit("File not found.")
         
     # Dictionaries to hold dataframes
     dfs = {}
@@ -141,15 +152,19 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     # fig, ax1 = plt.subplots(figsize=(2, 15))
      # Determine the number of unique terms to display
     unique_terms_count = len(df['term_name'].unique())
+    unique_conditions_count = len(df['sourceData'].unique())
     
-    # Dynamically set the figure height based on the number of unique terms
-    # Assuming 0.4 inches per term for readability
+    # Dynamically set the figure height based on the number of unique terms, 
+    # and width based on the number of unique conditions
+    # Assuming 0.4 inches per term and condition for readability
     dynamic_fig_height = max(5, unique_terms_count * 0.4)  # Ensuring a minimum height of 5 inches
+    dynamic_fig_width = max(5, unique_conditions_count * 0.4)  # Ensuring a minimum width of 5 inches
     
     # Create the plot with dynamic figure size
     # fig, ax1 = plt.subplots(figsize=(8, dynamic_fig_height))  # Adjust the width as needed
     #fig, ax1 = plt.subplots(figsize=(3,9))
-    fig, ax1 = plt.subplots(figsize=(3,dynamic_fig_height))
+    #fig, ax1 = plt.subplots(figsize=(3,dynamic_fig_height))
+    fig, ax1 = plt.subplots(figsize=(dynamic_fig_width,dynamic_fig_height))
 
     # Scatter plot
     # sns.scatterplot(x='sourceData', y='term_name', size='intersection_size', hue='adjusted_p_value', data=df, palette=color_dict, sizes=(20, 100), ax=ax1)
@@ -253,6 +268,9 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
     plt.close()
 
 if __name__ == "__main__":
+    # Dictionary to map string values to boolean
+    bool_map = {"true": True, "false": False}
+    
     directory_input = input("Please enter the directory: ")
     file_input = input("Please enter the name of the GO file: ")
     top_number_input = input("Please enter the number of top rows to keep based on 'adjusted_p_value' (default is 15): ")
@@ -280,14 +298,17 @@ if __name__ == "__main__":
         p_value_input = 0.05
 
     try:
-        filled_version_input = filled_version_input.strip().lower() == 'true'
-    except ValueError:
+        ## Dictionary to map string values to boolean
+        #bool_map = {"true": True, "false": False}
+        filled_version_input = bool_map[filled_version_input.strip().lower()]
+    except KeyError:
         print("Invalid input for filled version. Using the default value of True.")
         filled_version_input = True
     
     try:
-        multiquery_input = multiquery_input.strip().lower() == 'true'
-    except ValueError:
+        #multiquery_input = multiquery_input.strip().lower() == 'true'
+        multiquery_input = bool_map[multiquery_input.strip().lower()]
+    except KeyError:
         print("Invalid input for multiquery. Using the default value of False.")
         multiquery_input = False    
 
