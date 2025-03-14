@@ -67,16 +67,23 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
         if multiquery:
             # Split groups
             for x in groups:
+                #Adjust naming of columns
                 df = multiquery_df[['source', 'term_name', 'term_id', 'term_size',
                                     'adjusted_p_value__' + x, 'query_size__' + x,
                                     'intersection_size__' + x]]
                 df.columns = ['source', 'term_name', 'term_id', 'term_size',
-                              'adjusted_p_value', 'query_size', 'intersection_size']                
+                              'adjusted_p_value', 'query_size', 'intersection_size']      
                 # Filter based on term_size and adjusted_p_value
                 df = df.loc[(df['term_size'] <= term_size_cutoff) & (df['adjusted_p_value'] <= p_value_threshold)]
-                # Find top terms by adjusted_p_value to include in terms_to_show
+                # Find top terms by adjusted_p_value to include in terms_to_show.
                 top_terms = df.nsmallest(top_number, 'adjusted_p_value')['term_name']
                 terms_to_show = np.unique(np.append(terms_to_show, top_terms))
+                # Store the processed dataframe
+                dfs[x] = df
+                
+            for x in groups:
+                #Access sheet
+                df = dfs[x]
                 # Keep only rows where term_name is in terms_to_show
                 df = df.loc[df['term_name'].isin(terms_to_show)]
                 # Sort by adjusted_p_value
@@ -94,6 +101,12 @@ def process_file(GO_file: str, directory: str, top_number: int = 15, term_size_c
                 # Find top terms by adjusted_p_value to include in terms_to_show
                 top_terms = df.nsmallest(top_number, 'adjusted_p_value')['term_name']
                 terms_to_show = np.unique(np.append(terms_to_show, top_terms))
+                # Store the processed dataframe
+                dfs[sheet_name] = df                
+                
+            for sheet_name in xls.sheet_names:
+                # Access sheet
+                df = dfs[sheet_name]
                 # Keep only rows where term_name is in terms_to_show
                 df = df.loc[df['term_name'].isin(terms_to_show)]
                 # Sort by adjusted_p_value
